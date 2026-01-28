@@ -612,18 +612,43 @@ class PluginTypologyTypology_Item extends CommonDBRelation {
          $entities = $item->getEntityID();
       }
 
-      echo "<div align='center'>";
-      echo "<table class='tab_cadre_fixe'>";
-      echo "<tr class='tab_bg_1'>";
-      echo "<input type='hidden' name='items_id' value='$ID'>";
-      echo "<input type='hidden' name='itemtype' value='$itemtype'>";
-      echo "<td class='center' class='tab_bg_2'>";
-      echo PluginTypologyTypology::getTypeName(2)." ";
-      Dropdown::show('PluginTypologyTypology',
-                     ['name' => "plugin_typology_typologies_id",
-                           'entities_id' => $entities]);
-      echo "</td><td class='center' class='tab_bg_2'>";
-      echo "<input type='submit' name='add_item' value=\""._sx('button', 'Post')."\" class='submit'></td></tr></div>";
+      $form = [
+         'action' => '',
+         'buttons' => [
+            [
+               'type' => 'submit',
+               'name' => 'add_item',
+               'value' => _sx('button', 'Post'),
+               'class' => 'btn btn-secondary',
+            ],
+         ],
+         'content' => [
+            '' => [
+               'visible' => true,
+               'inputs' => [
+                  [
+                     'name' => 'items_id',
+                     'type' => 'hidden',
+                     'value' => $ID,
+                  ],
+                  [
+                     'name' => 'itemtype',
+                     'type' => 'hidden',
+                     'value' => $itemtype,
+                  ],
+                  PluginTypologyTypology::getTypeName(2) => [
+                     'name' => 'plugin_typology_typologies_id',
+                     'type' => 'select',
+                     'itemtype' => PluginTypologyTypology::class,
+                     'entity' => $entities,
+                     'value' => 0,
+                  ],
+               ],
+            ],
+         ]
+      ];
+
+      renderTwigForm($form);
    }
 
    /**
@@ -654,29 +679,93 @@ class PluginTypologyTypology_Item extends CommonDBRelation {
 
       if ($canedit) {
 
-         echo "<div class='firstbloc'>";
-         echo "<form method='post' name='typologies_form$rand' id='typologies_form$rand' action='" .
-            $CFG_GLPI["root_doc"]. PLUGIN_TYPOLOGY_DIR_NOFULL . "/front/typology.form.php'>";
+         // Préparer les options de types
+         $types = PluginTypologyTypology::getTypes();
+         $typeOptions = [0 => Dropdown::EMPTY_VALUE];
+         foreach ($types as $itemtype) {
+            $item = new $itemtype();
+            $typeOptions[$itemtype] = $item->getTypeName(1);
+         }
+         asort($typeOptions);
 
-         echo "<table class='tab_cadre_fixe'>";
-         echo "<tr>";
-         echo "<th colspan='7'>" . __('Add an item') . "</th></tr>";
+         $entity = ($typo->fields['is_recursive'] ? -1 : $typo->fields['entities_id']);
 
-         echo "<tr class='tab_bg_1'><td colspan='4' class='center'>";
-         echo "<input type='hidden' name='plugin_typology_typologies_id' value='$typoID'>";
-         Dropdown::showSelectItemFromItemtypes(['items_id_name'   => "items_id",
-                                                'entity_restrict' => ($typo->fields['is_recursive'] ? -1 : $typo->fields['entities_id']),
-                                                'itemtypes'       => PluginTypologyTypology::getTypes()
-                                               ]);
-         echo "</td>";
-         echo "<td colspan='3' class='center' class='tab_bg_2'>";
+         $form = [
+            'action' => $CFG_GLPI["root_doc"]. PLUGIN_TYPOLOGY_DIR_NOFULL . "/front/typology.form.php",
+            'buttons' => [
+               [
+                  'type' => 'submit',
+                  'name' => 'add_item',
+                  'value' => _sx('button', 'Add'),
+                  'class' => 'btn btn-secondary',
+               ],
+            ],
+            'content' => [
+               __('Add an item') => [
+                  'visible' => true,
+                  'inputs' => [
+                     [
+                        'name' => 'plugin_typology_typologies_id',
+                        'type' => 'hidden',
+                        'value' => $typoID,
+                     ],
+                     __('Type') => [
+                        'name' => 'itemtype',
+                        'type' => 'select',
+                        'id' => 'selectItemTypeForTypology',
+                        'values' => $typeOptions,
+                        'value' => 0,
+                        'col_lg' => 6,
+                        'col_md' => 6,
+                        'hooks' => [
+                           'change' => <<<JS
+                              const val = this.value;
+                              $('#selectItemForTypology').empty();
+                              if (val != 0) {
+                                 $.ajax({
+                                    url: '{$CFG_GLPI['root_doc']}/ajax/dropdownAllItems.php',
+                                    data: {
+                                       itemtype_name: 'itemtype',
+                                       items_id_name: 'items_id',
+                                       idtable: val,
+                                       entity_restrict: {$entity},
+                                    },
+                                    type: 'POST',
+                                    success: function(data) {
+                                       const jsonDatas = JSON.parse(data);
+                                       for (const key in jsonDatas) {
+                                          if (typeof jsonDatas[key] === 'object') {
+                                             for (const key2 in jsonDatas[key]) {
+                                                $('#selectItemForTypology').append('<option value="' + key2 + '">' + jsonDatas[key][key2] + '</option>');
+                                             }
+                                          } else {
+                                             $('#selectItemForTypology').append('<option value="' + key + '">' + jsonDatas[key] + '</option>');
+                                          }
+                                       }
+                                    }
+                                 });
+                                 $('#selectItemForTypology').prop('disabled', false);
+                              } else {
+                                 $('#selectItemForTypology').prop('disabled', true);
+                              }
+                           JS,
+                        ],
+                     ],
+                     __('Item') => [
+                        'name' => 'items_id',
+                        'type' => 'select',
+                        'id' => 'selectItemForTypology',
+                        'values' => [],
+                        'col_lg' => 6,
+                        'col_md' => 6,
+                        'disabled' => true,
+                     ],
+                  ],
+               ],
+            ]
+         ];
 
-         echo "<input type='submit' name='add_item' value=\"" . _sx('button', 'Add') . "\" class='submit'>";
-         echo "</td></tr>";
-
-         echo "</table>";
-         Html::closeForm();
-         echo "</div>";
+         renderTwigForm($form);
       }
 
       $types = PluginTypologyTypology::getTypes();

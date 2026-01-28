@@ -135,33 +135,84 @@ class PluginTypologyTypologyCriteriaDefinition extends CommonDBChild {
       echo "<div class='firstbloc'>";
 
       if ($result = $DB->query($query)) {
+         global $CFG_GLPI;
 
          if (Session::haveRight("plugin_typology", UPDATE)) {
-            echo "<form method='post' action='./typologycriteria.form.php'>";
-            echo "<table class='tab_cadre_fixe'>";
-            echo "<tr><th colspan='6'>" . PluginTypologyTypologyCriteriaDefinition::getTypeName(1) . "</tr>";
-            echo "<input type='hidden' name='plugin_typology_typologycriterias_id' value='$typocrit_id'>";
-            echo "<input type='hidden' name='entities_id' value='".$typocrit->getField('entities_id')."'>";
-            echo "<input type='hidden' name='is_recursive' value='".$typocrit->getField('is_recursive')."'>";
-            echo "<tr class='tab_bg_1 center'>";
-            echo "<td>" . _n('Field', 'Fields', 2) . "</td><td>";
-            PluginTypologyTypologyCriteriaDefinition::dropdownFields($typocrit_id);
-            echo "</td>";
+            $typoCrit = new PluginTypologyTypologyCriteria();
+            $typoCrit->getFromDB($typocrit_id);
+            $itemtype = $typoCrit->fields['itemtype'];
 
-            echo "<td>";
-            echo "<span id='span_actions' name='span_actions'></span></td>";
+            $fieldOptions = self::getFieldsOptions($typocrit_id);
 
-            echo "<td>";
-            echo "<span id='span_values' name='span_values'></span></td>";
+            $form = [
+               'action' => './typologycriteria.form.php',
+               'buttons' => [
+                  [
+                     'type' => 'submit',
+                     'name' => 'add_action',
+                     'value' => _sx('button', 'Add'),
+                     'class' => 'btn btn-secondary',
+                  ],
+               ],
+               'content' => [
+                  self::getTypeName(1) => [
+                     'visible' => true,
+                     'inputs' => [
+                        [
+                           'name' => 'plugin_typology_typologycriterias_id',
+                           'type' => 'hidden',
+                           'value' => $typocrit_id,
+                        ],
+                        [
+                           'name' => 'entities_id',
+                           'type' => 'hidden',
+                           'value' => $typocrit->getField('entities_id'),
+                        ],
+                        [
+                           'name' => 'is_recursive',
+                           'type' => 'hidden',
+                           'value' => $typocrit->getField('is_recursive'),
+                        ],
+                        _n('Field', 'Fields', 2) => [
+                           'name' => 'field',
+                           'type' => 'select',
+                           'id' => 'field',
+                           'values' => $fieldOptions,
+                           'value' => 0,
+                           'hooks' => [
+                              'change' => <<<JS
+                                 $.ajax({
+                                    url: '{$CFG_GLPI["root_doc"]}/plugins/typology/ajax/dropdownAction.php',
+                                    type: 'POST',
+                                    data: {
+                                       field: this.value,
+                                       value: 0,
+                                       itemtype: '{$itemtype}',
+                                       typocrit_id: {$typocrit_id}
+                                    },
+                                    success: function(data) {
+                                       $('#span_actions').html(data);
+                                    }
+                                 });
+                                 $('#span_values').html('');
+                              JS,
+                           ],
+                        ],
+                        __('Logical operator') => [
+                           'content' => "<span id='span_actions' name='span_actions'></span>",
+                        ],
+                        __('Value') => [
+                           'content' => "<span id='span_values' name='span_values'></span>",
+                        ],
+                     ],
+                  ],
+               ]
+            ];
 
-            echo"<td class='tab_bg_2 left' width='80px'>";
-            echo "<input type='submit' name='add_action' value=\"" . _sx('button', 'Add') . "\" class='submit'>";
-            echo "</td></tr>\n";
-            echo "</table>";
-            Html::closeForm();
+            renderTwigForm($form);
             echo "</div>";
          }
-         if ($DB->num_fields($result)>0) {
+         if ($DB->numFields($result)>0) {
 
             if ($canedit) {
                Html::openMassiveActionsForm('mass' . __CLASS__ . $rand);
@@ -227,6 +278,63 @@ class PluginTypologyTypologyCriteriaDefinition extends CommonDBChild {
     * @param int $value
     * @return mixed
     */
+   /**
+    * Get field options for a criteria as an array
+    *
+    * @param $typocrit_id criteria ID
+    * @return array field options [value => label]
+    */
+   static function getFieldsOptions($typocrit_id) {
+      global $DB;
+
+      $typoCrit = new PluginTypologyTypologyCriteria();
+      $typoCrit->getFromDB($typocrit_id);
+      $itemtype = $typoCrit->fields['itemtype'];
+
+      $dbu = new DbUtils();
+      $target = new $itemtype();
+      $options = [0 => Dropdown::EMPTY_VALUE];
+
+      foreach ($DB->listFields($dbu->getTableForItemType($itemtype)) as $field) {
+         $searchOption = $target->getSearchOptionByField('field', $field['Field']);
+         if (empty($searchOption)) {
+            if ($table = $dbu->getTableNameForForeignKeyField($field['Field'])) {
+               $searchOption = $target->getSearchOptionByField('field', 'name', $table);
+            }
+         }
+
+         if (empty($searchOption)) {
+            if ($table = $dbu->getTableNameForForeignKeyField($field['Field'])) {
+               $crit = $dbu->getItemForItemtype($dbu->getItemTypeForTable($table));
+               if ($crit instanceof CommonTreeDropdown) {
+                  $searchOption = $target->getSearchOptionByField('field', 'completename', $table);
+               } else {
+                  $searchOption = $target->getSearchOptionByField('field', 'name', $table);
+               }
+            }
+         }
+
+         if (!empty($searchOption)
+            && !in_array($field['Field'], self::getUnallowedFields($itemtype))
+         ) {
+            $datatype = !empty($searchOption['datatype']) ? $searchOption['datatype'] : '';
+            $value = $field['Field'] . ";" . $searchOption['table'] . ";" . $datatype;
+            $options[$value] = $searchOption['name'];
+         }
+      }
+
+      // Special cases
+      if ($itemtype == 'DeviceMemory') {
+         $options['count;glpi_items_devicememories;number'] = _x('Quantity', 'Number');
+      } else if ($itemtype == 'DeviceProcessor') {
+         $options['count;glpi_items_deviceprocessors;number'] = _x('Quantity', 'Number');
+      } else if ($itemtype == 'Software') {
+         $options['softwareversions_id;glpi_softwareversions;'] = __('Name')." - "._n('Version', 'Versions', 2);
+      }
+
+      return $options;
+   }
+
    static function dropdownFields($typocrit_id, $value = 0) {
       global $DB, $CFG_GLPI;
       $typoCritDef = new PluginTypologyTypologyCriteriaDefinition();
@@ -247,7 +355,7 @@ class PluginTypologyTypologyCriteriaDefinition extends CommonDBChild {
       echo "<select name='field' id='field'>";
       echo "<option value='0'>" . Dropdown::EMPTY_VALUE . "</option>";
 
-      foreach ($DB->list_fields($dbu->getTableForItemType($itemtype)) as $field) {
+      foreach ($DB->listFields($dbu->getTableForItemType($itemtype)) as $field) {
          $searchOption = $target->getSearchOptionByField('field', $field['Field']);
          if (empty($searchOption)) {
             if ($table = $dbu->getTableNameForForeignKeyField($field['Field'])) {
@@ -664,6 +772,11 @@ class PluginTypologyTypologyCriteriaDefinition extends CommonDBChild {
       $typoCrit = new PluginTypologyTypologyCriteria();
       $typoCrit->getFromDB($typocrit_id);
 
+      if (empty($action) || $action == '0') {
+         echo "</span></td>";
+         return;
+      }
+
       if ($action == 'contains'
          || $action == 'notcontains'
             || $action == 'regex_match'
@@ -710,7 +823,41 @@ class PluginTypologyTypologyCriteriaDefinition extends CommonDBChild {
                   default :
                      $dbu = new DbUtils();
                      $itemclass = $dbu->getItemTypeForTable($itemTable);
-                     Dropdown::show($itemclass, ['name' => 'value','entity' => $typoCrit->fields['entities_id']]);
+                     if ($itemclass && class_exists($itemclass)) {
+                        global $DB;
+                        $item = new $itemclass();
+                        $isTree = ($item instanceof CommonTreeDropdown);
+
+                        $tableFields = $DB->listFields($itemTable);
+                        $hasCompletename = isset($tableFields['completename']);
+                        $hasName = isset($tableFields['name']);
+                        $nameField = ($isTree && $hasCompletename) ? 'completename' : ($hasName ? 'name' : 'id');
+
+                        $entityRestrict = "";
+                        $hasEntitiesId = isset($tableFields['entities_id']);
+                        if ($hasEntitiesId && $item->isEntityAssign()) {
+                           $entities = [$typoCrit->fields['entities_id']];
+                           if (isset($typoCrit->fields['is_recursive']) && $typoCrit->fields['is_recursive']) {
+                              $entities = array_merge($entities, $dbu->getSonsOf('glpi_entities', $typoCrit->fields['entities_id']));
+                           }
+                           $entityRestrict = " AND `entities_id` IN (" . implode(',', $entities) . ")";
+                        }
+
+                        $query = "SELECT `id`, `$nameField` as name FROM `$itemTable` WHERE 1=1 $entityRestrict ORDER BY `$nameField`";
+                        $result = $DB->query($query);
+
+                        echo "<select name='value' id='value'>";
+                        echo "<option value='0'>" . Dropdown::EMPTY_VALUE . "</option>";
+                        if ($result && $DB->numrows($result) > 0) {
+                           while ($data = $DB->fetchAssoc($result)) {
+                              $displayName = ($data['name'] !== null && $data['name'] !== '') ? $data['name'] : '(' . $data['id'] . ')';
+                              echo "<option value='" . $data['id'] . "'>" . htmlspecialchars($displayName) . "</option>";
+                           }
+                        }
+                        echo "</select>";
+                     } else {
+                        Html::autocompletionTextField($typoCritDef, "value");
+                     }
                      break;
                }
                break;

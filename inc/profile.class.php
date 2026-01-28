@@ -128,31 +128,50 @@ class PluginTypologyProfile extends CommonDBTM {
     **/
    function showForm($profiles_id = 0, $openform = true, $closeform = true) {
 
-      echo "<div class='firstbloc'>";
-      if (($canedit = Session::haveRightsOr(self::$rightname, [CREATE, UPDATE, PURGE]))
-          && $openform) {
-         $profile = new Profile();
-         echo "<form method='post' action='".$profile->getFormURL()."'>";
-      }
+      $canedit = Session::haveRightsOr(self::$rightname, [CREATE, UPDATE, PURGE]);
 
       $profile = new Profile();
       $profile->getFromDB($profiles_id);
-      if ($profile->getField('interface') == 'central') {
-         $rights = $this->getAllRights();
-         $profile->displayRightsChoiceMatrix($rights, ['canedit'       => $canedit,
-                                                         'default_class' => 'tab_bg_2',
-                                                         'title'         => __('General')]);
+
+      if ($profile->getField('interface') != 'central') {
+         return false;
       }
 
-      if ($canedit
-          && $closeform) {
-         echo "<div class='center'>";
-         echo Html::hidden('id', ['value' => $profiles_id]);
-         echo Html::submit(_sx('button', 'Save'), ['name' => 'update']);
-         echo "</div>\n";
-         Html::closeForm();
-      }
-      echo "</div>";
+      $rights = $this->getAllRights();
+
+      ob_start();
+      $profile->displayRightsChoiceMatrix($rights, [
+         'canedit'       => $canedit,
+         'default_class' => 'tab_bg_2',
+         'title'         => __('General')
+      ]);
+      $matrixHtml = ob_get_clean();
+
+      $form = [
+         'action' => $profile->getFormURL(),
+         'itemtype' => Profile::class,
+         'content' => [
+            PluginTypologyTypology::getTypeName(2) => [
+               'visible' => true,
+               'inputs' => [
+                  '' => [
+                     'content' => $matrixHtml,
+                     'col_lg' => 12,
+                     'col_md' => 12,
+                  ],
+                  [
+                     'name' => 'id',
+                     'type' => 'hidden',
+                     'value' => $profiles_id,
+                  ],
+               ],
+            ],
+         ]
+      ];
+
+      renderTwigForm($form, '', ['id' => $profiles_id]);
+
+      return true;
    }
 
    /**

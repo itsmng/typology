@@ -177,31 +177,71 @@ class PluginTypologyTypologyCriteria extends CommonDBTM {
 
       if ($canedit) {
          if ($showAdd) {
-            echo "<div class='center first-bloc'>";
-            echo "<form name='typocrit_form$rand' id='typocrit_form$rand' method='post' action='";
-            echo Toolbox::getItemTypeFormURL(__CLASS__) . "'>";
-            echo "<table class='tab_cadre_fixe'>";
-            echo "<tr class='tab_bg_1'><th colspan='7'>" . __('Add a criterion', 'typology') . "</tr>";
+            $types = PluginTypologyTypology::getTypesCriteria();
+            $itemtypeOptions = [0 => Dropdown::EMPTY_VALUE];
+            foreach ($types as $itemtype) {
+               $item = new $itemtype();
+               $itemtypeOptions[$itemtype] = $item->getTypeName($itemtype);
+            }
+            asort($itemtypeOptions);
 
-            echo "<tr class='tab_bg_2'><td class='center'>" . __('Name') . "</td>";
-            echo "<input type='hidden' name='plugin_typology_typologies_id' value='$ID'>";
-            echo "<input type='hidden' name='entities_id' value='" . $typo->getEntityID() . "'>";
-            echo "<input type='hidden' name='is_recursive' value='" . $typo->isRecursive() . "'>";
-            echo "</td><td class='center'>";
-            Html::autocompletionTextField($crit, "name");
-            echo "</td><td class='center'>" . __('Item') . "</td><td class='center' width='20%'>";
-            PluginTypologyTypologyCriteria::dropdownItemtype();
-            echo "</td><td>" . __('Logical operator') . "</td><td>";
-            Dropdown::showFromArray('link', [0 => __('and'), 1 => __('or')]);
-            echo "</td><td>";
-            echo "<input type='hidden' name='is_active' value='1'>";
-            echo "<input type='submit' name='add' value=\"" . _sx('button', 'Add') . "\" class='submit'>";
-            echo "</td></tr>";
+            $form = [
+               'action' => Toolbox::getItemTypeFormURL(__CLASS__),
+               'buttons' => [
+                  [
+                     'type' => 'submit',
+                     'name' => 'add',
+                     'value' => _sx('button', 'Add'),
+                     'class' => 'btn btn-secondary',
+                  ],
+               ],
+               'content' => [
+                  __('Add a criterion', 'typology') => [
+                     'visible' => true,
+                     'inputs' => [
+                        [
+                           'name' => 'plugin_typology_typologies_id',
+                           'type' => 'hidden',
+                           'value' => $ID,
+                        ],
+                        [
+                           'name' => 'entities_id',
+                           'type' => 'hidden',
+                           'value' => $typo->getEntityID(),
+                        ],
+                        [
+                           'name' => 'is_recursive',
+                           'type' => 'hidden',
+                           'value' => $typo->isRecursive(),
+                        ],
+                        [
+                           'name' => 'is_active',
+                           'type' => 'hidden',
+                           'value' => 1,
+                        ],
+                        __('Name') => [
+                           'name' => 'name',
+                           'type' => 'text',
+                           'value' => '',
+                        ],
+                        __('Item') => [
+                           'name' => 'itemtype',
+                           'type' => 'select',
+                           'values' => $itemtypeOptions,
+                           'value' => 0,
+                        ],
+                        __('Logical operator') => [
+                           'name' => 'link',
+                           'type' => 'select',
+                           'values' => [0 => __('and'), 1 => __('or')],
+                           'value' => 0,
+                        ],
+                     ],
+                  ],
+               ]
+            ];
 
-            echo "</table>";
-            Html::closeForm();
-
-            echo "</div>";
+            renderTwigForm($form);
          }
 
          //         echo "<form name='massiveaction_form$rand' id='massiveaction_form$rand' method='post'
@@ -375,47 +415,61 @@ class PluginTypologyTypologyCriteria extends CommonDBTM {
    function showForm($ID, $options = []) {
 
       $this->initForm($ID, $options);
-      $this->showFormHeader($options);
 
       $itemtype = $this->fields["itemtype"];
 
-      echo "<tr class='tab_bg_1'>";
-      echo "<td>" . __('Name') . "</td><td>";
-      Html::autocompletionTextField($this, "name");
-      echo "</td>";
-      echo "<td>" . __('Item') . "</td><td>";
-      echo $itemtype::getTypeName(0) . "</td>";
-      echo "</td></tr>";
-
-      echo "<tr class='tab_bg_1'>";
-
-      echo "<td>" . __('Logical operator') . "</td><td>";
-      Dropdown::showFromArray('link',
-                              [0 => __('and'), 1 => __('or')],
-                              ['value' => $this->fields["link"]]);
-      echo "</td>";
-
-      echo "<td>" . __('Active') . "</td><td>";
-      Dropdown::showYesNo('is_active', $this->fields['is_active']);
-      echo "</td>";
-      echo "</tr>\n";
-
-      echo "<tr class='tab_bg_1'>";
-
       $typo = new PluginTypologyTypology();
       $typo->getFromDB($this->fields['plugin_typology_typologies_id']);
-      echo "<td>" . PluginTypologyTypology::getTypeName(1) . "</td>";
-      echo "<td>";
-      echo $typo->getLink();
-      echo "</td>";
 
-      echo "<td>" . __('Last update') . "</td>";
-      echo "<td>" . ($this->fields["date_mod"] ? Html::convDateTime($this->fields["date_mod"])
-            : __('Never'));
+      $lastUpdate = $this->fields["date_mod"] ? Html::convDateTime($this->fields["date_mod"]) : __('Never');
 
-      echo "</tr>\n";
+      $form = [
+         'action' => $this->getFormURL(),
+         'itemtype' => self::class,
+         'content' => [
+            __('General') => [
+               'visible' => true,
+               'inputs' => [
+                  __('Name') => [
+                     'name' => 'name',
+                     'type' => 'text',
+                     'value' => $this->fields['name'] ?? '',
+                  ],
+                  __('Item') => [
+                     'name' => 'itemtype_display',
+                     'type' => 'text',
+                     'value' => $itemtype::getTypeName(0),
+                     'disabled' => true,
+                  ],
+                  __('Logical operator') => [
+                     'name' => 'link',
+                     'type' => 'select',
+                     'values' => [0 => __('and'), 1 => __('or')],
+                     'value' => $this->fields['link'] ?? 0,
+                  ],
+                  __('Active') => [
+                     'name' => 'is_active',
+                     'type' => 'select',
+                     'values' => [0 => __('No'), 1 => __('Yes')],
+                     'value' => $this->fields['is_active'] ?? 1,
+                  ],
+                  PluginTypologyTypology::getTypeName(1) => [
+                     'content' => $typo->getLink(),
+                  ],
+                  __('Last update') => [
+                     'name' => 'date_mod',
+                     'type' => 'text',
+                     'value' => $lastUpdate,
+                     'disabled' => true,
+                  ],
+               ],
+            ],
+         ]
+      ];
 
-      $this->showFormButtons($options);
+      renderTwigForm($form, '', $this->fields);
+
+      return true;
    }
 
    /**

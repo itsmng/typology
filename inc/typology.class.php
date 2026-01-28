@@ -203,35 +203,48 @@ class PluginTypologyTypology extends CommonDBTM {
    function showForm($ID, $options = []) {
 
       $this->initForm($ID, $options);
-      $this->showFormHeader($options);
 
-      echo "<tr class='tab_bg_1'>";
-      echo "<td>" . __('Name') . "</td>";
-      echo "<td>";
-      Html::autocompletionTextField($this, "name", ['value' => $this->fields["name"]]);
-      echo "</td>";
-      echo "<td rowspan=2>" . __('Comments') . "</td>";
-      echo "<td rowspan=2>";
-      echo "<textarea cols='45' rows='8' name='comment' >" . $this->fields["comment"] . "</textarea>";
-      echo "</td></tr>";
-
-      echo "<tr class='tab_bg_1'>";
-
+      $lastUpdate = __('Never');
       if (!$ID) {
-         echo "<td>" . __('Last update') . "</td>";
-         echo "<td>";
-         echo Html::convDateTime($_SESSION["glpi_currenttime"]);
-
-      } else {
-         echo "<td>" . __('Last update') . "</td>";
-         echo "<td>" . ($this->fields["date_mod"] ? Html::convDateTime($this->fields["date_mod"])
-               : __('Never'));
+         $lastUpdate = Html::convDateTime($_SESSION["glpi_currenttime"]);
+      } else if ($this->fields["date_mod"]) {
+         $lastUpdate = Html::convDateTime($this->fields["date_mod"]);
       }
 
-      echo "</td></tr>";
-      echo "<input type='hidden' name='entities_id' value='" . $_SESSION['glpiactive_entity'] . "'>";
+      $form = [
+         'action' => $this->getFormURL(),
+         'itemtype' => self::class,
+         'content' => [
+            __('General') => [
+               'visible' => true,
+               'inputs' => [
+                  __('Name') => [
+                     'name' => 'name',
+                     'type' => 'text',
+                     'value' => $this->fields['name'] ?? '',
+                  ],
+                  __('Last update') => [
+                     'name' => 'date_mod',
+                     'type' => 'text',
+                     'value' => $lastUpdate,
+                     'disabled' => true,
+                  ],
+                  __('Comments') => [
+                     'name' => 'comment',
+                     'type' => 'textarea',
+                     'value' => $this->fields['comment'] ?? '',
+                  ],
+                  [
+                     'name' => 'entities_id',
+                     'type' => 'hidden',
+                     'value' => $_SESSION['glpiactive_entity'],
+                  ],
+               ],
+            ],
+         ]
+      ];
 
-      $this->showFormButtons($options);
+      renderTwigForm($form, '', $this->fields);
 
       return true;
    }
