@@ -1,13 +1,7 @@
 # typology
-Plugin typology pour GLPI
+Plugin typology pour ITSM-NG
 
-Ce plugin est sur Transifex - Aidez-nous à le traduire :
-https://www.transifex.com/infotelGLPI/GLPI_typology/
-
-This plugin is on Transifex - Help us to translate :
-https://www.transifex.com/infotelGLPI/GLPI_typology/
-
-Ce plugin permet de définir des typologies d'usage (gestion de configurations) à partir des informations des éléments inventoriés dans GLPI. 
+Ce plugin permet de définir des typologies d'usage (gestion de configurations) à partir des informations des éléments inventoriés dans ITSM-NG. 
 Exemple : les ordinateurs ayant tel nom doivent avoir tel lieu, tel statut, telle IP et pas tel ou tel logiciel..
 
 * Fonctionnalités :
@@ -18,7 +12,7 @@ Exemple : les ordinateurs ayant tel nom doivent avoir tel lieu, tel statut, tell
 > * Actions automatiques : Mise à jour automatique des typologies affectées
 > * Rapport : Liste des typologies par service
 
-This plugin allows you to define typologies of use (configuration management) from the information items inventoried in GLPI. 
+This plugin allows you to define typologies of use (configuration management) from the information items inventoried in ITSM-NG. 
 Example : computers which have this name must have this location and this IP and not this software.
 
 * Features :
