@@ -722,14 +722,18 @@ class PluginTypologyTypology_Item extends CommonDBRelation {
                               const val = this.value;
                               $('#selectItemForTypology').empty();
                               if (val != 0) {
+                                 const ajaxData = {
+                                    itemtype_name: 'itemtype',
+                                    items_id_name: 'items_id',
+                                    idtable: val,
+                                 };
+                                 const entityRestrict = {$entity};
+                                 if (entityRestrict >= 0) {
+                                    ajaxData.entity_restrict = entityRestrict;
+                                 }
                                  $.ajax({
                                     url: '{$CFG_GLPI['root_doc']}/ajax/dropdownAllItems.php',
-                                    data: {
-                                       itemtype_name: 'itemtype',
-                                       items_id_name: 'items_id',
-                                       idtable: val,
-                                       entity_restrict: {$entity},
-                                    },
+                                    data: ajaxData,
                                     type: 'POST',
                                     success: function(data) {
                                        const jsonDatas = JSON.parse(data);
