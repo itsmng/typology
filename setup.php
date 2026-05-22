@@ -83,7 +83,7 @@ function plugin_version_typology() {
       'version'        => PLUGIN_TYPOLOGY_VERSION,
       'author'         => "<a href='http://blogglpi.infotel.com'>Infotel</a>",
       'license'        => 'GPLv2+',
-      'homepage'       => 'https://github.com/InfotelGLPI/typology',
+      'homepage'       => 'https://github.com/itsmng/typology',
       'requirements'   => [
          'glpi' => [
             'min' => '9.5',
