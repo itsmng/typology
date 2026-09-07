@@ -1,0 +1,12 @@
+Source: typology
+Section: web
+Priority: standard
+Maintainer: ITSMng SysAdmin <sysadmin@itsm-ng.com>
+Build-Depends:	debhelper (>= 9)
+Rules-Requires-Root: no
+Homepage: https://github.com/itsmng/formcreator
+
+Package: itsm-ng-plugin-typology
+Architecture: all
+Depends: itsm-ng (>= 1:2.0),
+Description: This plugin allows you to define typologies of use (configuration management) from the information items inventoried in ITSM-NG. Example : computers which have this name must have this location and this IP and not this software.
